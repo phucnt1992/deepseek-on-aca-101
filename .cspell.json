@@ -1,0 +1,31 @@
+{
+  "ignorePaths": [
+    "**/node_modules/**",
+    "**/vscode-extension/**",
+    "**/.git/**",
+    "**/.gitignore",
+    "**/.pnpm-lock.json",
+    ".vscode",
+    "megalinter",
+    "package-lock.json",
+    "report",
+    "infra/abbreviations.json"
+  ],
+  "language": "en",
+  "noConfigSearch": true,
+  "words": [
+    "abbrs",
+    "deepseek",
+    "DOCKERFILELINT",
+    "megalinter",
+    "Modelfile",
+    "ollama",
+    "oxsecurity",
+    "Phuc",
+    "SARIF",
+    "venv",
+    "viewports",
+    "webui"
+  ],
+  "version": "0.2"
+}

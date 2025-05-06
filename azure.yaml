@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: deepseek-on-aca-101
+metadata:
+  template: azd-init@1.14.0
+services:
+  deepseek-on-aca-101:
+    project: .
+    host: containerapp
+    language: ts

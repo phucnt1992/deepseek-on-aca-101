@@ -1,0 +1,31 @@
+{
+  "name": "deepseek-on-aca-101",
+  "version": "1.0.0",
+  "description": "A simple workshop to deploy deepseek to Azure Container Apps",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test:e2e": "cucumber-js --config e2e/cucumber.js",
+    "prepare": "husky"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/phucnt1992/deepseek-on-aca-101.git"
+  },
+  "keywords": [],
+  "author": "PhucNT",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/phucnt1992/deepseek-on-aca-101/issues"
+  },
+  "homepage": "https://github.com/phucnt1992/deepseek-on-aca-101#readme",
+  "devDependencies": {
+    "@cucumber/cucumber": "^11.2.0",
+    "@playwright/test": "^1.52.0",
+    "@types/node": "^22.14.1",
+    "dotenv": "^16.5.0"
+  }
+}

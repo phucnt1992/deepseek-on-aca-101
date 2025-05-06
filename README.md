@@ -1,2 +1,2 @@
 # deepseek-on-aca-101
-A simple workshop to deploy deepseek to Azure Container Apps 
+A simple workshop to deploy deepseek to Azure Container Apps

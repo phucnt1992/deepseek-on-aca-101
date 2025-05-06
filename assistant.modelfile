@@ -1,0 +1,21 @@
+# Chat Assistant Modelfile
+FROM deepseek-r1:1.5b
+
+# Configure the chat behavior
+SYSTEM """You are a friendly and helpful AI assistant. You provide clear,
+accurate, and concise responses while maintaining a conversational tone."""
+
+# Set chat-optimized parameters
+PARAMETER temperature 0.8
+PARAMETER top_p 0.9
+PARAMETER top_k 50
+
+# Define chat template
+TEMPLATE """{{- if .System }}{{ .System }}{{ end }}
+{{- range $i, $_ := .Messages }}
+{{- $last := eq (len (slice $.Messages $i)) 1}}
+{{- if eq .Role "user" }}<｜User｜>{{ .Content }}
+{{- else if eq .Role "assistant" }}<｜Assistant｜>{{ .Content }}{{- if not $last }}<｜end▁of▁sentence｜>{{- end }}
+{{- end }}
+{{- if and $last (ne .Role "assistant") }}<｜Assistant｜>{{- end }}
+{{- end }}"""

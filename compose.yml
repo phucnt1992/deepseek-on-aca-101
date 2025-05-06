@@ -1,0 +1,30 @@
+version: "3.8"
+
+services:
+  ollama:
+    image: ghcr.io/ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    restart: unless-stopped
+    profiles: [linux]
+
+  webui:
+    image: ghcr.io/open-webui/open-webui:latest
+    ports:
+      - "8080:8080"
+    environment:
+      # Because Ollama container is not available on Apple Silicon
+      # So we use Ollama server on the host machine
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      # Optional: Set HF_HUB_OFFLINE=1 if you want offline mode
+      - HF_HUB_OFFLINE=1
+    volumes:
+      - open-webui-data:/app/backend/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+volumes:
+  open-webui-data:

@@ -1,0 +1,25 @@
+version: "3"
+
+tasks:
+  default:
+    desc: "Run all tasks"
+    cmds:
+      - task: lint
+
+  init:
+    desc: "Initialize the project"
+    cmds:
+      - cmd: azd init
+  clean:
+    desc: "Clean up generated files"
+    cmds:
+      - rm -rf megalinter-reports
+
+  lint:
+    desc: "Run megalinter"
+    cmds:
+      - cmd: npx mega-linter-runner
+        ignore_error: true
+      # This is a workaround for the issue with the amd64 platform not being removed on macOS
+      - cmd: rm -rf core qemu*
+        platforms: [darwin]
