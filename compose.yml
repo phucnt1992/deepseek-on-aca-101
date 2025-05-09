@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   ollama:
     image: ghcr.io/ollama/ollama:latest
@@ -18,8 +16,11 @@ services:
       # Because Ollama container is not available on Apple Silicon
       # So we use Ollama server on the host machine
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
-      # Optional: Set HF_HUB_OFFLINE=1 if you want offline mode
-      - HF_HUB_OFFLINE=1
+      # Uncomment to use Ollama server in the container
+      # - OLLAMA_BASE_URL=http://ollama:11434
+      - WEBUI_NAME="☕️ DEV Cafe"
+      # Skip the login page
+      - WEBUI_AUTH=False
     volumes:
       - open-webui-data:/app/backend/data
     extra_hosts:
@@ -28,3 +29,4 @@ services:
 
 volumes:
   open-webui-data:
+  ollama-data:

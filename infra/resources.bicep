@@ -4,122 +4,221 @@ param location string = resourceGroup().location
 @description('Tags that will be applied to all resources')
 param tags object = {}
 
-param deepseekOnAca101Exists bool
-
-@description('Id of the user or app to assign application roles')
-param principalId string
-
+// Define variables
+@description('Abbreviations for resource names')
 var abbrs = loadJsonContent('./abbreviations.json')
+
+@description('A unique token for resource naming')
 var resourceToken = uniqueString(subscription().id, resourceGroup().id, location)
 
+@description('The name of the workload profile to use for the container app')
+var workloadProfileName = 'GPU'
+
+@description('The name of the volume for Ollama')
+var ollamaVolumeName = 'ollama'
+
+@description('The name of the volume for Open WebUI')
+var openWebUIVolumeName = 'open-webui'
+
 // Monitor application with Azure Monitor
-module monitoring 'br/public:avm/ptn/azd/monitoring:0.1.0' = {
-  name: 'monitoring'
-  params: {
-    logAnalyticsName: '${abbrs.operationalInsightsWorkspaces}${resourceToken}'
-    applicationInsightsName: '${abbrs.insightsComponents}${resourceToken}'
-    applicationInsightsDashboardName: '${abbrs.portalDashboards}${resourceToken}'
-    location: location
-    tags: tags
+resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2025-02-01' = {
+  name: '${abbrs.operationalInsightsWorkspaces}${resourceToken}'
+  location: location
+  tags: tags
+  properties: {
+    retentionInDays: 30
+    sku: {
+      name: 'PerGB2018'
+    }
   }
 }
 
-// Container registry
-module containerRegistry 'br/public:avm/res/container-registry/registry:0.1.1' = {
-  name: 'registry'
-  params: {
-    name: '${abbrs.containerRegistryRegistries}${resourceToken}'
-    location: location
-    tags: tags
-    publicNetworkAccess: 'Enabled'
-    roleAssignments: [
-      {
-        principalId: deepseekOnAca101Identity.outputs.principalId
-        principalType: 'ServicePrincipal'
-        roleDefinitionIdOrName: subscriptionResourceId(
-          'Microsoft.Authorization/roleDefinitions',
-          '7f951dda-4ed3-4680-a7ca-43fe172d538d'
-        )
+resource appInsight 'Microsoft.Insights/components@2020-02-02' = {
+  name: '${abbrs.insightsComponents}${resourceToken}'
+  location: location
+  kind: 'web'
+  tags: tags
+
+  properties: {
+    WorkspaceResourceId: logWorkspace.id
+    Application_Type: 'web'
+    RetentionInDays: 30
+    SamplingPercentage: 100
+    IngestionMode: 'LogAnalytics'
+  }
+}
+
+// Storage account for container apps
+
+resource storageAccount 'Microsoft.Storage/storageAccounts@2024-01-01' = {
+  name: '${abbrs.storageStorageAccounts}${resourceToken}'
+  location: location
+  sku: {
+    name: 'Standard_LRS'
+  }
+  kind: 'StorageV2'
+  tags: tags
+
+  properties: {
+    largeFileSharesState: 'Enabled'
+    supportsHttpsTrafficOnly: true
+    minimumTlsVersion: 'TLS1_2'
+    accessTier: 'Hot'
+    allowBlobPublicAccess: false
+    allowSharedKeyAccess: true
+  }
+
+  resource fileServices 'fileServices' = {
+    name: 'default'
+    properties: {
+      shareDeleteRetentionPolicy: {
+        days: 7
+        enabled: true
       }
-    ]
+    }
+
+    resource ollama 'shares' = {
+      name: ollamaVolumeName
+      properties: {
+        accessTier: 'TransactionOptimized'
+        shareQuota: 5120
+        enabledProtocols: 'SMB'
+      }
+    }
+
+    resource openWebUI 'shares' = {
+      name: openWebUIVolumeName
+      properties: {
+        accessTier: 'TransactionOptimized'
+        shareQuota: 5120
+        enabledProtocols: 'SMB'
+      }
+    }
   }
 }
 
 // Container apps environment
-module containerAppsEnvironment 'br/public:avm/res/app/managed-environment:0.4.5' = {
-  name: 'container-apps-environment'
-  params: {
-    logAnalyticsWorkspaceResourceId: monitoring.outputs.logAnalyticsWorkspaceResourceId
-    name: '${abbrs.appManagedEnvironments}${resourceToken}'
-    location: location
+resource appEnv 'Microsoft.App/managedEnvironments@2025-01-01' = {
+  // Primary settings
+  name: '${abbrs.appManagedEnvironments}${resourceToken}'
+  location: location
+
+  // Settings
+  properties: {
     zoneRedundant: false
-  }
-}
+    infrastructureResourceGroup: resourceGroup().name
 
-module deepseekOnAca101Identity 'br/public:avm/res/managed-identity/user-assigned-identity:0.2.1' = {
-  name: 'deepseekOnAca101identity'
-  params: {
-    name: '${abbrs.managedIdentityUserAssignedIdentities}deepseekOnAca101-${resourceToken}'
-    location: location
-  }
-}
-
-module deepseekOnAca101FetchLatestImage './modules/fetch-container-image.bicep' = {
-  name: 'deepseekOnAca101-fetch-image'
-  params: {
-    exists: deepseekOnAca101Exists
-    name: 'deepseek-on-aca-101'
-  }
-}
-
-module deepseekOnAca101 'br/public:avm/res/app/container-app:0.8.0' = {
-  name: 'deepseekOnAca101'
-  params: {
-    name: 'deepseek-on-aca-101'
-    ingressTargetPort: 80
-    scaleMinReplicas: 1
-    scaleMaxReplicas: 10
-    secrets: {
-      secureList: []
+    appLogsConfiguration: {
+      destination: 'log-analytics'
+      logAnalyticsConfiguration: {
+        customerId: logWorkspace.properties.customerId
+        sharedKey: logWorkspace.listKeys().primarySharedKey
+      }
     }
-    containers: [
+
+    // Ref: https://learn.microsoft.com/en-us/azure/container-apps/workload-profiles-overview
+    workloadProfiles: [
       {
-        image: deepseekOnAca101FetchLatestImage.outputs.?containers[?0].?image ?? 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
-        name: 'main'
-        resources: {
-          cpu: json('0.5')
-          memory: '1.0Gi'
+        name: 'default'
+        workloadProfileType: 'Consumption'
+      }
+      {
+        name: workloadProfileName
+        workloadProfileType: 'Consumption-GPU-NC8as-T4'
+      }
+    ]
+  }
+
+  resource ollama 'storages' = {
+    name: ollamaVolumeName
+    properties: {
+      azureFile: {
+        accessMode: 'ReadWrite'
+        accountKey: storageAccount.listKeys().keys[0].value
+        accountName: storageAccount.name
+        shareName: ollamaVolumeName
+      }
+    }
+  }
+
+  resource openWebUI 'storages' = {
+    name: openWebUIVolumeName
+    properties: {
+      azureFile: {
+        accessMode: 'ReadWrite'
+        accountKey: storageAccount.listKeys().keys[0].value
+        accountName: storageAccount.name
+        shareName: openWebUIVolumeName
+      }
+    }
+  }
+}
+
+resource app 'Microsoft.App/containerApps@2025-01-01' = {
+  name: '${abbrs.appContainerApps}${resourceToken}'
+  location: location
+  tags: tags
+
+  properties: {
+    environmentId: appEnv.id
+    workloadProfileName: workloadProfileName
+    configuration: {
+      activeRevisionsMode: 'Single'
+      ingress: {
+        external: true
+        targetPort: 8080
+        transport: 'auto'
+      }
+    }
+    template: {
+      scale: {
+        minReplicas: 0
+        maxReplicas: 1
+      }
+      containers: [
+        {
+          image: 'ghcr.io/open-webui/open-webui:ollama'
+          name: 'webui'
+          resources: {
+            cpu: json('8')
+            memory: '56Gi'
+          }
+          env: [
+            {
+              name: 'WEBUI_AUTH'
+              value: 'False'
+            }
+            {
+              name: 'WEBUI_NAME'
+              value: '☕️ DEV Cafe'
+            }
+          ]
+          volumeMounts: [
+            {
+              volumeName: ollamaVolumeName
+              mountPath: '/root/.ollama'
+            }
+            {
+              volumeName: openWebUIVolumeName
+              mountPath: '/app/backend/data'
+            }
+          ]
         }
-        env: [
-          {
-            name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
-            value: monitoring.outputs.applicationInsightsConnectionString
-          }
-          {
-            name: 'AZURE_CLIENT_ID'
-            value: deepseekOnAca101Identity.outputs.clientId
-          }
-          {
-            name: 'PORT'
-            value: '80'
-          }
-        ]
-      }
-    ]
-    managedIdentities: {
-      systemAssigned: false
-      userAssignedResourceIds: [deepseekOnAca101Identity.outputs.resourceId]
+      ]
+      volumes: [
+        {
+          name: ollamaVolumeName
+          storageType: 'AzureFile'
+          storageName: ollamaVolumeName
+          mountOptions: 'dir_mode=0775,file_mode=0775,nobrl'
+        }
+        {
+          name: openWebUIVolumeName
+          storageType: 'AzureFile'
+          storageName: openWebUIVolumeName
+          mountOptions: 'dir_mode=0775,file_mode=0775,nobrl'
+        }
+      ]
     }
-    registries: [
-      {
-        server: containerRegistry.outputs.loginServer
-        identity: deepseekOnAca101Identity.outputs.resourceId
-      }
-    ]
-    environmentResourceId: containerAppsEnvironment.outputs.resourceId
-    location: location
-    tags: union(tags, { 'azd-service-name': 'deepseek-on-aca-101' })
   }
 }
-output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerRegistry.outputs.loginServer
-output AZURE_RESOURCE_DEEPSEEK_ON_ACA_101_ID string = deepseekOnAca101.outputs.resourceId

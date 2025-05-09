@@ -15,17 +15,21 @@
   "noConfigSearch": true,
   "words": [
     "abbrs",
+    "bicepparam",
     "deepseek",
     "DOCKERFILELINT",
+    "dotenv",
     "megalinter",
     "Modelfile",
     "ollama",
     "oxsecurity",
     "Phuc",
     "SARIF",
+    "Taskfile",
     "venv",
     "viewports",
-    "webui"
+    "webui",
+    "westus"
   ],
   "version": "0.2"
 }

@@ -1,6 +1,8 @@
 {
   "recommendations": [
+    "cucumberopen.cucumber-official",
+    "docker.docker",
+    "ms-azuretools.vscode-containers",
     "warm3snow.vscode-ollama-modelfile",
-    "cucumberopen.cucumber-official"
   ]
 }

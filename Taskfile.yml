@@ -2,24 +2,33 @@ version: "3"
 
 tasks:
   default:
-    desc: "Run all tasks"
-    cmds:
-      - task: lint
+    desc: "List tasks"
+    cmd: task --list
 
   init:
     desc: "Initialize the project"
     cmds:
-      - cmd: azd init
-  clean:
-    desc: "Clean up generated files"
-    cmds:
-      - rm -rf megalinter-reports
+      - npm run prepare
 
-  lint:
-    desc: "Run megalinter"
-    cmds:
-      - cmd: npx mega-linter-runner
-        ignore_error: true
-      # This is a workaround for the issue with the amd64 platform not being removed on macOS
-      - cmd: rm -rf core qemu*
-        platforms: [darwin]
+  deploy:
+    desc: "Deploy the project"
+    prompt: "Are you sure you want to deploy?"
+    dotenv:
+      - .env
+    cmd: |
+      az deployment group create \
+        --name deepseek-on-aca \
+        --resource-group $AZURE_RESOURCE_GROUP \
+        --parameters ./infra/main.bicepparam \
+        --template-file ./infra/main.bicep
+
+  destroy:
+    desc: "Destroy the project"
+    prompt: "Are you sure you want to destroy?"
+    dotenv:
+      - .env
+    cmd: |
+      az deployment group create \
+        --resource-group $AZURE_RESOURCE_GROUP \
+        --template-file ./infra/empty.bicep
+        --mode Complete

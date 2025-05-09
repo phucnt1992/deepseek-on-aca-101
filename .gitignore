@@ -405,5 +405,5 @@ FodyWeavers.xsd
 /blob-report/
 /playwright/.cache/
 
-megalinter-reports/
-.azure
+# Environment variables
+.env
