@@ -4,6 +4,8 @@
 
 This is a simple guide to deploy Deepseek on Azure Container Apps. Deepseek is a tool for searching and analyzing large datasets using deep learning techniques. It is designed to be easy to use, making it suitable for a wide range applications.
 
+![Infrastructure Diagram](./docs/images/infra.png)
+
 ## Prerequisites
 
 1. Azure account: You need an Azure account to create and manage resources. You also should request to increase GPU quota in your Azure subscription.
